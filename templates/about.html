@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}About | Threat Pulse{% endblock %}
+{% block description %}About Threat Pulse cyber security threat intelligence platform{% endblock %}
+{% block body_class %}about-page{% endblock %}
+{% block navigation %}{% endblock %}
+{% block content %}
+    <div class="about-shell">
+        <nav class="about-nav"><a class="brand" href="{{ url_for('index') }}"><span class="brand-mark"><span></span></span><span>Threat <strong>Pulse</strong></span></a><div><a href="{{ url_for('index') }}">Dashboard</a><a class="about-nav-active" href="{{ url_for('about') }}">About</a></div><a class="button button-primary button-small" href="{{ url_for('index') }}">Open dashboard <span>→</span></a></nav>
+        <main class="about-main">
+            <section class="about-hero"><p class="eyebrow">The signal behind the noise</p><h1>Security teams move faster<br><em>when context is clear.</em></h1><p class="about-lede">Threat Pulse brings your threat landscape into focus, turning scattered signals into a calm, prioritized view of what needs attention now.</p></section>
+            <section class="about-stats"><div><strong>01</strong><span>One focused view</span></div><div><strong>24/7</strong><span>Continuous monitoring</span></div><div><strong>↓ 18m</strong><span>Average response time</span></div></section>
+            <section class="about-story"><div><p class="eyebrow">Why Threat Pulse</p><h2>Clarity is a security feature.</h2></div><div><p>Modern security teams collect more signals than ever. Threat Pulse is designed to help analysts see the meaningful pattern inside that volume, understand the risk, and move from detection to decision without losing momentum.</p><p>It combines live monitoring, external intelligence, and asset context in a workspace built for the people doing the work.</p></div></section>
+            <section class="principles"><article><span class="principle-number">01</span><h3>See the signal</h3><p>Surface the threats that matter with a focused view of activity across your environment.</p></article><article><span class="principle-number">02</span><h3>Understand the risk</h3><p>Connect incidents to assets, sources, and severity so every alert has useful context.</p></article><article><span class="principle-number">03</span><h3>Act with confidence</h3><p>Give your team a shared operational picture to investigate, contain, and respond.</p></article></section>
+        </main>
+        <footer class="about-footer"><span>Threat Pulse <b>·</b> Built for focused response.</span><span>IT401 Final Project</span></footer>
+    </div>
+{% endblock %}
+
+{% block footer %}{% endblock %}

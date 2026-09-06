@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="{% block description %}Threat Pulse cyber security threat intelligence platform{% endblock %}">
+    <title>{% block title %}Threat Pulse{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    {% block navigation %}
+    <nav class="base-nav" aria-label="Site navigation">
+        <a class="brand" href="{{ url_for('index') }}" aria-label="Threat Pulse home">
+            <span class="brand-mark"><span></span></span>
+            <span>Threat <strong>Pulse</strong></span>
+        </a>
+        <div class="base-nav-links">
+            <a href="{{ url_for('index') }}">Dashboard</a>
+            <a href="{{ url_for('about') }}">About</a>
+        </div>
+    </nav>
+    {% endblock %}
+
+    {% block content %}{% endblock %}
+
+    {% block footer %}
+    <footer class="base-footer">
+        <span>Threat Pulse <b>·</b> Intelligence you can act on.</span>
+        <span>IT401 Final Project</span>
+    </footer>
+    {% endblock %}
+</body>
+</html>

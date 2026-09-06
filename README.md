@@ -84,3 +84,30 @@ With the virtual environment activated:
 ```bash
 python -m pytest tests/
 ```
+READEME Documentation:
+ThreatPulse
+Daniel Rowland
+IT401 - Web Intelligence Assignment A1
+
+The Purpose of this Application is to server the Cyber Security Analysts by simplifying the threats they need to assess in one app. This addresses the problem of too much information when doing a cyber security job and simplyfying everything into one app.
+
+I plan to make this a full app that pulls data in a simulated enviroment and simplifies that data. I hope to be able to pull simulated data and make it easier to read the information, as well as the assets page. Currently, we have a main page that shows the information, a intellegence page, where you can view JSON pulled data, and an about page, about ThreatPulse
+
+This will eventually manage plenty of assets, information on intelligence from JSON pulled data, and other threat viewing such as critical alerts and active threats
+
+Some major directories and files include: 
+Flask entry point and configuration
+Routes and services directories
+JSON threat data store (intelligence.html)
+Shared and page-specific templates
+CSS styling (style.css)
+Tests and dependencies (app.py, test_app.py)
+Current Threat Pulse application purpose
+
+![alt text](image.png)
+![alt text](image-1.png)
+![alt text](image-2.png)
+![alt text](image-3.png)
+![alt text](image-4.png)
+
+I plan to include multiple assets and include web pages for critical alerts and active threats, and many more.

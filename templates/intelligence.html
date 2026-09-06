@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Threat Intelligence | Threat Pulse{% endblock %}
+{% block description %}Search and filter the Threat Pulse local threat intelligence store.{% endblock %}
+{% block body_class %}intelligence-page{% endblock %}
+
+{% block content %}
+<main class="intelligence-main">
+    <header class="intelligence-heading">
+        <div>
+            <p class="eyebrow">Threat Pulse / Intelligence</p>
+            <h1>Threat intelligence</h1>
+            <p>Search the signals shaping your current security picture.</p>
+        </div>
+        <span class="record-count">{{ threats|length }} signals returned</span>
+    </header>
+
+    <form class="intelligence-filters" method="get" action="{{ url_for('intelligence') }}">
+        <label class="search-field"><span>⌕</span><input type="search" name="q" value="{{ filters.query }}" placeholder="Search threats, categories, or indicators" aria-label="Search threats"></label>
+        <label><span class="sr-only">Severity</span><select name="severity"><option value="">All severities</option>{% for option in ["Critical", "High", "Medium", "Low"] %}<option value="{{ option }}" {% if filters.severity|lower == option|lower %}selected{% endif %}>{{ option }}</option>{% endfor %}</select></label>
+        <label><span class="sr-only">Status</span><select name="status"><option value="">All statuses</option>{% for option in ["New", "Investigating", "Contained", "Resolved"] %}<option value="{{ option }}" {% if filters.status|lower == option|lower %}selected{% endif %}>{{ option }}</option>{% endfor %}</select></label>
+        <label><span class="sr-only">Source</span><select name="source"><option value="">All sources</option>{% for option in ["External intel", "EDR sensor", "Cloud scanner", "Domain monitor", "Asset scanner"] %}<option value="{{ option }}" {% if filters.source|lower == option|lower %}selected{% endif %}>{{ option }}</option>{% endfor %}</select></label>
+        <button class="button button-primary" type="submit">Filter signals</button>
+        {% if filters.query or filters.severity or filters.status or filters.source %}<a class="clear-filter" href="{{ url_for('intelligence') }}">Clear</a>{% endif %}
+    </form>
+
+    <section class="intelligence-list" aria-label="Threat intelligence results">
+        {% for threat in threats %}
+        <article class="intelligence-card">
+            <div class="intelligence-card-top"><span class="threat-id">{{ threat.id }}</span><span class="badge {{ threat.severity|lower }}-badge">{{ threat.severity }}</span></div>
+            <h2>{{ threat.title }}</h2>
+            <p>{{ threat.description }}</p>
+            <div class="intelligence-meta"><span><b>Category</b>{{ threat.category }}</span><span><b>Source</b>{{ threat.source }}</span><span><b>First seen</b>{{ threat.first_seen }}</span><span><b>Status</b><span class="status"><i></i>{{ threat.status }}</span></span></div>
+            <div class="indicator-line"><span>Indicators</span>{{ threat.indicators }}</div>
+        </article>
+        {% else %}
+        <div class="empty-state"><strong>No matching signals</strong><p>Try clearing a filter or searching for a different term.</p><a class="text-link" href="{{ url_for('intelligence') }}">Reset intelligence view →</a></div>
+        {% endfor %}
+    </section>
+</main>
+{% endblock %}
+
+{% block footer %}
+<footer class="base-footer intelligence-footer"><span>Threat Pulse <b>·</b> Intelligence you can act on.</span><span>Data source: local JSON store</span></footer>
+{% endblock %}

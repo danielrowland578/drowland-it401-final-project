@@ -1,0 +1,57 @@
+[
+  {
+    "id": "TP-2048",
+    "title": "Credential stuffing campaign",
+    "severity": "Critical",
+    "category": "Authentication",
+    "source": "External intel",
+    "status": "Investigating",
+    "first_seen": "12 min ago",
+    "description": "Distributed login attempts are targeting customer-facing authentication endpoints.",
+    "indicators": "185.44.12.0/24 · 42 usernames"
+  },
+  {
+    "id": "TP-2047",
+    "title": "Unusual PowerShell execution",
+    "severity": "High",
+    "category": "Endpoint",
+    "source": "EDR sensor",
+    "status": "Investigating",
+    "first_seen": "38 min ago",
+    "description": "A signed script launched from a temporary directory on an engineering workstation.",
+    "indicators": "ENG-WS-044 · powershell.exe"
+  },
+  {
+    "id": "TP-2046",
+    "title": "Exposed S3 bucket detected",
+    "severity": "Medium",
+    "category": "Cloud posture",
+    "source": "Cloud scanner",
+    "status": "Contained",
+    "first_seen": "1 hr ago",
+    "description": "A storage bucket briefly allowed public listing and contained internal build artifacts.",
+    "indicators": "us-east-1 · build-artifacts"
+  },
+  {
+    "id": "TP-2045",
+    "title": "Lookalike login domain registered",
+    "severity": "High",
+    "category": "Brand abuse",
+    "source": "Domain monitor",
+    "status": "New",
+    "first_seen": "3 hrs ago",
+    "description": "A newly registered domain closely resembles the company identity provider.",
+    "indicators": "threat-pulse-login.com · 1 domain"
+  },
+  {
+    "id": "TP-2044",
+    "title": "Legacy TLS version in use",
+    "severity": "Low",
+    "category": "Network",
+    "source": "Asset scanner",
+    "status": "Resolved",
+    "first_seen": "Yesterday",
+    "description": "An internet-facing service negotiated TLS 1.0 during an external scan.",
+    "indicators": "portal-legacy · TLS 1.0"
+  }
+]
