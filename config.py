@@ -9,6 +9,7 @@ class Config:
 
     # External API keys / service config
     API_KEY = os.environ.get("API_KEY")
+    APIFREAKS_API_KEY = os.environ.get("APIFREAKS_API_KEY")
     AI_SERVICE_API_KEY = os.environ.get("AI_SERVICE_API_KEY")
 
 

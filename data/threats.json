@@ -53,5 +53,126 @@
     "first_seen": "Yesterday",
     "description": "An internet-facing service negotiated TLS 1.0 during an external scan.",
     "indicators": "portal-legacy · TLS 1.0"
+  },
+  {
+    "id": "TP-2043",
+    "title": "Botnet C2 beaconing",
+    "severity": "Critical",
+    "category": "Command and control",
+    "source": "Network telemetry",
+    "status": "Investigating",
+    "first_seen": "2 hrs ago",
+    "description": "Endpoint telemetry shows recurring outbound callbacks to an external command-and-control server.",
+    "indicators": "45.133.22.7 · 5-minute interval"
+  },
+  {
+    "id": "TP-2042",
+    "title": "Phishing kit linked to payroll lure",
+    "severity": "High",
+    "category": "Phishing",
+    "source": "Public source",
+    "status": "New",
+    "first_seen": "4 hrs ago",
+    "description": "A phishing campaign is impersonating payroll services and distributing credential-harvesting pages.",
+    "indicators": "payroll-update[.]link · fake payroll portal"
+  },
+  {
+    "id": "TP-2041",
+    "title": "Malvertising banner injection",
+    "severity": "Medium",
+    "category": "Web abuse",
+    "source": "Web proxy",
+    "status": "Contained",
+    "first_seen": "6 hrs ago",
+    "description": "A compromised advertising supply chain inserted malicious JavaScript into a partner website.",
+    "indicators": "ad.network · script tag injection"
+  },
+  {
+    "id": "TP-2040",
+    "title": "Suspicious API token reuse",
+    "severity": "High",
+    "category": "Identity",
+    "source": "Cloud audit",
+    "status": "Investigating",
+    "first_seen": "8 hrs ago",
+    "description": "An application token was observed on multiple geographies and failed token hygiene checks.",
+    "indicators": "API token 88ef4 · 2 regions"
+  },
+  {
+    "id": "TP-2039",
+    "title": "Ransomware note staging in temp folder",
+    "severity": "Critical",
+    "category": "Ransomware",
+    "source": "EDR sensor",
+    "status": "Contained",
+    "first_seen": "1 day ago",
+    "description": "A workstation wrote encryption artifacts and ransom note templates into a temporary folder before isolation.",
+    "indicators": "C:\\Temp\\*.bin · ransom note"
+  },
+  {
+    "id": "TP-2038",
+    "title": "New malicious npm package discovered",
+    "severity": "High",
+    "category": "Software supply chain",
+    "source": "Package monitor",
+    "status": "New",
+    "first_seen": "1 day ago",
+    "description": "An open-source dependency impersonates a corporate utility package and executes post-install scripts.",
+    "indicators": "@corp-utility-cli · postinstall hook"
+  },
+  {
+    "id": "TP-2037",
+    "title": "Suspicious outbound DNS tunneling",
+    "severity": "Critical",
+    "category": "Exfiltration",
+    "source": "DNS analytics",
+    "status": "Investigating",
+    "first_seen": "2 days ago",
+    "description": "High-volume DNS queries with long subdomains suggest data exfiltration over encoded channels.",
+    "indicators": "examplecorp.local · long labels"
+  },
+  {
+    "id": "TP-2036",
+    "title": "Impossible travel for privileged user",
+    "severity": "Medium",
+    "category": "Identity",
+    "source": "Identity cloud",
+    "status": "Resolved",
+    "first_seen": "2 days ago",
+    "description": "A senior engineer signed in from two distant regions within a narrow time window.",
+    "indicators": "user:draleigh · 2,300 km in 18 mins"
+  },
+  {
+    "id": "TP-2035",
+    "title": "Publicly exposed admin panel",
+    "severity": "High",
+    "category": "Exposure",
+    "source": "External scan",
+    "status": "Contained",
+    "first_seen": "3 days ago",
+    "description": "An administrative interface was reachable without a VPN and failed default security controls.",
+    "indicators": "admin.example.com · HTTP auth bypass"
+  },
+  {
+    "id": "TP-2034",
+    "title": "Zero-day exploit chatter on dark web forum",
+    "severity": "Medium",
+    "category": "Threat actor intel",
+    "source": "Public source",
+    "status": "New",
+    "first_seen": "3 days ago",
+    "description": "Discussion forums mention a proof-of-concept exploit against a recently patched perimeter appliance.",
+    "indicators": "0-day · perimeter appliance"
+  },
+  {
+    "id": "TP-2033",
+    "title": "Public GitHub repo leak clues",
+    "severity": "Low",
+    "category": "Data leak",
+    "source": "Open source monitoring",
+    "status": "Resolved",
+    "first_seen": "4 days ago",
+    "description": "A public repository exposed configuration templates that include environment labels and internal hostnames.",
+    "indicators": "internal-names · repo discovery"
   }
 ]

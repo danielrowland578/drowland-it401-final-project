@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Domain Infrastructure Lookup | Threat Pulse{% endblock %}
+{% block description %}Look up domain age, registrar details, and expiration data for suspicious domains using APIFreaks.{% endblock %}
+{% block body_class %}intelligence-page{% endblock %}
+
+{% block content %}
+<main class="intelligence-main">
+    <header class="intelligence-heading">
+        <div>
+            <p class="eyebrow">Threat Pulse / Domain Intelligence</p>
+            <h1>Domain infrastructure lookup</h1>
+            <p>Check a suspicious domain for age, registrar details, and expiry status before taking action.</p>
+        </div>
+    </header>
+
+    <form class="intelligence-filters" method="get" action="{{ url_for('domain_lookup') }}">
+        <label class="search-field">
+            <span>⌕</span>
+            <input type="search" name="domain" value="{{ domain }}" placeholder="Enter a suspicious domain name" aria-label="Domain lookup">
+        </label>
+        <button class="button button-primary" type="submit">Lookup domain</button>
+    </form>
+
+    {% if error %}
+    <section class="intelligence-card" aria-live="polite">
+        <strong>Lookup error</strong>
+        <p>{{ error }}</p>
+    </section>
+    {% elif result %}
+    <section class="intelligence-card" aria-live="polite">
+        <div class="intelligence-card-top">
+            <span class="threat-id">Domain</span>
+            <span class="badge {% if result.domain_registered == 'yes' %}medium-badge{% else %}low-badge{% endif %}">{{ result.domain_registered }}</span>
+        </div>
+
+        <h2>{{ result.domain_name }}</h2>
+        <p>WHOIS data was queried live and normalized for analyst review.</p>
+
+        <div class="intelligence-meta">
+            <span><b>Query time</b>{{ result.query_time }}</span>
+            <span><b>Created</b>{{ result.create_date }}</span>
+            <span><b>Expires</b>{{ result.expiry_date }}</span>
+            <span><b>Registrar</b>{{ result.registrar_name }}</span>
+        </div>
+
+        <div class="indicator-line"><span>Registrar status</span>{{ result.registrar_status }}</div>
+        <div class="indicator-line"><span>Registrar IANA ID</span>{{ result.registrar_iana_id }}</div>
+        <div class="indicator-line"><span>Website</span>{{ result.registrar_website }}</div>
+        <div class="indicator-line"><span>Abuse contact</span>{{ result.registrar_email }}</div>
+
+        {% if result.name_servers %}
+        <div class="indicator-line"><span>Name servers</span>{{ result.name_servers|join(', ') }}</div>
+        {% endif %}
+
+        {% if result.domain_status %}
+        <div class="indicator-line"><span>Domain status</span>{{ result.domain_status|join(', ') }}</div>
+        {% endif %}
+    </section>
+    {% elif domain %}
+    <div class="empty-state">
+        <strong>No data returned</strong>
+        <p>Try a different domain or confirm the value is valid before rerunning the lookup.</p>
+    </div>
+    {% endif %}
+</main>
+{% endblock %}
+
+{% block footer %}
+<footer class="base-footer intelligence-footer"><span>Threat Pulse <b>·</b> Infrastructure checks.</span><span>Source: APIFreaks WHOIS lookup</span></footer>
+{% endblock %}

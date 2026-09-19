@@ -1,6 +1,9 @@
 import os
 
+from dotenv import load_dotenv
 from flask import Flask
+
+load_dotenv()
 
 from config import config
 from routes.main import register_routes

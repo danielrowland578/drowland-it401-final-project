@@ -12,7 +12,7 @@
             <h1>Threat intelligence</h1>
             <p>Search the signals shaping your current security picture.</p>
         </div>
-        <span class="record-count">{{ threats|length }} signals returned</span>
+        <span class="record-count">{{ threats|length }} signals returned · {{ scrape_count }} enriched from the web</span>
     </header>
 
     <form class="intelligence-filters" method="get" action="{{ url_for('intelligence') }}">
@@ -32,6 +32,16 @@
             <p>{{ threat.description }}</p>
             <div class="intelligence-meta"><span><b>Category</b>{{ threat.category }}</span><span><b>Source</b>{{ threat.source }}</span><span><b>First seen</b>{{ threat.first_seen }}</span><span><b>Status</b><span class="status"><i></i>{{ threat.status }}</span></span></div>
             <div class="indicator-line"><span>Indicators</span>{{ threat.indicators }}</div>
+
+            {% if threat.web_summary %}
+            <div class="scrape-panel">
+                <div class="scrape-panel-heading"><div class="scrape-label">External context</div><span class="risk-score {{ threat.web_risk_label|lower }}-risk"><b>{{ threat.web_risk_score }}</b>/100 {{ threat.web_risk_label }} risk</span></div>
+                <p>{{ threat.web_summary }}</p>
+                {% if threat.reference_title %}
+                <a href="{{ threat.web_reference }}" target="_blank" rel="noreferrer">{{ threat.reference_title }}</a>
+                {% endif %}
+            </div>
+            {% endif %}
         </article>
         {% else %}
         <div class="empty-state"><strong>No matching signals</strong><p>Try clearing a filter or searching for a different term.</p><a class="text-link" href="{{ url_for('intelligence') }}">Reset intelligence view →</a></div>

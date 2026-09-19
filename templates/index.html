@@ -22,6 +22,7 @@
                 <a class="nav-item active" href="{{ url_for('index') }}"><span class="nav-icon">◈</span>Overview</a>
                 <a class="nav-item" href="#incidents"><span class="nav-icon">⌁</span>Incidents <span class="nav-count">12</span></a>
                 <a class="nav-item" href="{{ url_for('intelligence') }}"><span class="nav-icon">◎</span>Intelligence</a>
+                <a class="nav-item" href="{{ url_for('domain_lookup') }}"><span class="nav-icon">◍</span>Domain lookup</a>
                 <a class="nav-item" href="#assets"><span class="nav-icon">⌘</span>Assets</a>
             </nav>
 
@@ -53,7 +54,10 @@
                         <h1>Good morning, Daniel.</h1>
                         <p class="subtitle">Here’s the threat picture across your environment.</p>
                     </div>
-                    <button class="button button-primary" type="button"><span>＋</span> Create investigation</button>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <button class="button button-primary" type="button"><span>＋</span> Create investigation</button>
+                        <a class="button button-primary" href="{{ url_for('domain_lookup') }}" style="background: rgba(25, 210, 174, 0.12); border-color: rgba(25, 210, 174, 0.4); color: var(--ink);"><span>◍</span> Domain lookup</a>
+                    </div>
                 </section>
 
                 <section class="metric-grid" aria-label="Threat summary">
