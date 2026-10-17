@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Threat Pulse | Assets{% endblock %}
+{% block description %}Asset inventory for the Threat Pulse security workspace{% endblock %}
+{% block body_class %}assets-page{% endblock %}
+{% block content %}
+    <div class="app-shell">
+        <aside class="sidebar">
+            <a class="brand" href="{{ url_for('index') }}" aria-label="Threat Pulse home">
+                <span class="brand-mark"><span></span></span>
+                <span>Threat <strong>Pulse</strong></span>
+            </a>
+            <div class="workspace-label">Workspace</div>
+            <div class="workspace-switcher">
+                <span class="status-dot"></span>
+                <span>Security Operations</span>
+                <span class="chevron">⌄</span>
+            </div>
+            <nav class="primary-nav" aria-label="Primary navigation">
+                <a class="nav-item" href="{{ url_for('index') }}"><span class="nav-icon">◈</span>Overview</a>
+                <a class="nav-item" href="{{ url_for('index') }}#incidents"><span class="nav-icon">⌁</span>Incidents <span class="nav-count">12</span></a>
+                <a class="nav-item" href="{{ url_for('intelligence') }}"><span class="nav-icon">◎</span>Intelligence</a>
+                <a class="nav-item" href="{{ url_for('domain_lookup') }}"><span class="nav-icon">◍</span>Domain lookup</a>
+                <a class="nav-item active" href="{{ url_for('assets') }}" aria-current="page"><span class="nav-icon">⌘</span>Assets</a>
+            </nav>
+            <div class="sidebar-bottom">
+                <a class="nav-item" href="{{ url_for('about') }}"><span class="nav-icon">?</span>About Threat Pulse</a>
+                <div class="user-card">
+                    <div class="avatar">DR</div>
+                    <div><strong>Daniel Rowland</strong><small>Analyst · Online</small></div>
+                    <span class="more">•••</span>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div class="breadcrumb"><span>Workspace</span><b>/</b>Assets</div>
+                <div class="topbar-actions">
+                    <span class="last-sync"><span class="pulse-dot"></span>Inventory snapshot</span>
+                    <button class="analyst-button" type="button"><span class="avatar small">DR</span>Daniel <span class="chevron">⌄</span></button>
+                </div>
+            </header>
+
+            <nav class="assets-mobile-nav" aria-label="Primary navigation">
+                <a href="{{ url_for('index') }}">Overview</a>
+                <a href="{{ url_for('intelligence') }}">Intelligence</a>
+                <a href="{{ url_for('domain_lookup') }}">Domain lookup</a>
+                <a class="active" href="{{ url_for('assets') }}" aria-current="page">Assets</a>
+            </nav>
+
+            <div class="content-wrap">
+                {% if database_error %}
+                    <div class="asset-notice" role="alert">{{ database_error }}</div>
+                {% endif %}
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% for category, message in messages %}
+                        <div class="asset-notice asset-notice-{{ category }}" role="status">{{ message }}</div>
+                    {% endfor %}
+                {% endwith %}
+
+                <section class="page-heading assets-heading">
+                    <div>
+                        <p class="eyebrow">Aiven MySQL inventory <span class="live-line"></span> {% if database_error %}Awaiting connection{% else %}Connected{% endif %}</p>
+                        <h1>Assets</h1>
+                        <p class="subtitle">A focused view of systems across your environment.</p>
+                    </div>
+                </section>
+
+                <section class="metric-grid" aria-label="Asset summary">
+                    <article class="metric-card"><div class="metric-top"><span>Total assets</span><span class="metric-icon">⌘</span></div><strong>{{ metrics.total }}</strong><div class="metric-change"><small>Across all environments</small></div></article>
+                    <article class="metric-card accent-blue"><div class="metric-top"><span>Active</span><span class="metric-icon">●</span></div><strong>{{ metrics.active }}</strong><div class="metric-change positive">Operational</div></article>
+                    <article class="metric-card accent-orange"><div class="metric-top"><span>Critical risk</span><span class="metric-icon">!</span></div><strong>{{ metrics.critical }}</strong><div class="metric-change negative">Requires attention</div></article>
+                    <article class="metric-card accent-purple"><div class="metric-top"><span>Unassigned</span><span class="metric-icon">?</span></div><strong>{{ metrics.unassigned }}</strong><div class="metric-change"><small>Owner not recorded</small></div></article>
+                </section>
+
+                {% if editing_asset %}
+                    <section class="panel asset-edit-panel" aria-labelledby="edit-asset-heading">
+                        <div class="assets-inventory-heading">
+                            <div><p class="eyebrow">Asset record</p><h2 id="edit-asset-heading">Edit {{ editing_asset.name }}</h2></div>
+                            <a class="asset-clear-filter" href="{{ url_for('assets') }}">Cancel</a>
+                        </div>
+                        <form class="asset-form" method="post" action="{{ url_for('update_asset', asset_id=editing_asset.id) }}">
+                            <label>Asset name<input name="name" maxlength="120" required value="{{ editing_asset.name }}"></label>
+                            <label>Type<select name="type" required>{% for kind in asset_kinds %}<option value="{{ kind }}" {% if editing_asset.type == kind %}selected{% endif %}>{{ kind }}</option>{% endfor %}</select></label>
+                            <label>Owner<input name="owner" maxlength="120" value="{{ editing_asset.owner or '' }}"></label>
+                            <label>Environment<input name="environment" maxlength="80" required value="{{ editing_asset.environment }}"></label>
+                            <label>Network address<input name="address" maxlength="255" value="{{ editing_asset.address or '' }}"></label>
+                            <label>Status<select name="status" required>{% for status in statuses %}<option value="{{ status }}" {% if editing_asset.status == status %}selected{% endif %}>{{ status }}</option>{% endfor %}</select></label>
+                            <label>Risk<select name="risk" required>{% for risk in risk_levels %}<option value="{{ risk }}" {% if editing_asset.risk == risk %}selected{% endif %}>{{ risk }}</option>{% endfor %}</select></label>
+                            <div class="asset-form-actions"><button class="button button-primary button-small" type="submit">Save changes</button></div>
+                        </form>
+                    </section>
+                {% endif %}
+
+                <section class="panel assets-inventory" aria-labelledby="inventory-heading">
+                    <div class="assets-inventory-heading">
+                        <div>
+                            <p class="eyebrow">Inventory</p>
+                            <h2 id="inventory-heading">All assets</h2>
+                        </div>
+                        <div class="assets-heading-actions">
+                            <span class="assets-result-count" role="status">{{ assets|length }} of {{ metrics.total }} assets</span>
+                            {% if database_ready %}
+                                <details class="asset-create">
+                                    <summary class="button button-primary button-small"><span aria-hidden="true">＋</span> Add asset</summary>
+                                    <form class="asset-form asset-create-form" method="post" action="{{ url_for('create_asset') }}">
+                                        <label>Asset name<input name="name" maxlength="120" required placeholder="Asset name"></label>
+                                        <label>Type<select name="type" required><option value="">Choose type</option>{% for kind in asset_kinds %}<option value="{{ kind }}">{{ kind }}</option>{% endfor %}</select></label>
+                                        <label>Owner<input name="owner" maxlength="120" placeholder="Optional"></label>
+                                        <label>Environment<input name="environment" maxlength="80" required placeholder="e.g. Production"></label>
+                                        <label>Network address<input name="address" maxlength="255" placeholder="Optional"></label>
+                                        <label>Status<select name="status" required>{% for status in statuses %}<option value="{{ status }}" {% if status == 'Active' %}selected{% endif %}>{{ status }}</option>{% endfor %}</select></label>
+                                        <label>Risk<select name="risk" required>{% for risk in risk_levels %}<option value="{{ risk }}" {% if risk == 'Low' %}selected{% endif %}>{{ risk }}</option>{% endfor %}</select></label>
+                                        <div class="asset-form-actions"><button class="button button-primary button-small" type="submit">Create asset</button></div>
+                                    </form>
+                                </details>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <form class="asset-filters" method="get" action="{{ url_for('assets') }}" role="search">
+                        <label class="asset-search">
+                            <span aria-hidden="true">⌕</span>
+                            <span class="sr-only">Search assets</span>
+                            <input type="search" name="q" value="{{ filters.query }}" placeholder="Search name, owner, address...">
+                        </label>
+                        <label class="sr-only" for="asset-type">Asset type</label>
+                        <select id="asset-type" name="type">
+                            <option value="">All types</option>
+                            {% for asset_type in asset_types %}
+                                <option value="{{ asset_type }}" {% if filters.type == asset_type %}selected{% endif %}>{{ asset_type }}</option>
+                            {% endfor %}
+                        </select>
+                        <label class="sr-only" for="asset-status">Asset status</label>
+                        <select id="asset-status" name="status">
+                            <option value="">All statuses</option>
+                            {% for status in statuses %}
+                                <option value="{{ status }}" {% if filters.status == status %}selected{% endif %}>{{ status }}</option>
+                            {% endfor %}
+                        </select>
+                        <button class="button button-primary button-small" type="submit">Filter</button>
+                        {% if filters.query or filters.type or filters.status %}
+                            <a class="asset-clear-filter" href="{{ url_for('assets') }}">Clear</a>
+                        {% endif %}
+                    </form>
+
+                    <div class="table-wrap assets-table-wrap">
+                        <table class="asset-table">
+                            <thead>
+                                <tr><th>Asset</th><th>Type</th><th>Owner</th><th>Environment</th><th>Network address</th><th>Updated</th><th>Status</th><th>Risk</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for asset in assets %}
+                                    <tr>
+                                        <td><div class="asset-name-cell"><strong>{{ asset.name }}</strong><small>AST-{{ "%06d"|format(asset.id) }}</small></div></td>
+                                        <td>{{ asset.type }}</td>
+                                        <td>{{ asset.owner or "Unassigned" }}</td>
+                                        <td>{{ asset.environment }}</td>
+                                        <td><span class="asset-address">{{ asset.address or "—" }}</span></td>
+                                        <td>{{ asset.updated_at.strftime("%Y-%m-%d %H:%M") if asset.updated_at else "—" }}</td>
+                                        <td><span class="asset-status status-{{ asset.status|lower }}"><i></i>{{ asset.status }}</span></td>
+                                        <td><span class="badge asset-risk risk-{{ asset.risk|lower }}">{{ asset.risk }}</span></td>
+                                        <td><div class="asset-row-actions"><a href="{{ url_for('assets', edit=asset.id) }}" aria-label="Edit {{ asset.name }}">Edit</a><form method="post" action="{{ url_for('delete_asset', asset_id=asset.id) }}" onsubmit="return confirm('Delete this asset?')"><button type="submit" aria-label="Delete {{ asset.name }}">Delete</button></form></div></td>
+                                    </tr>
+                                {% else %}
+                                    <tr><td class="assets-empty" colspan="9">{% if database_error %}Connect the database to load its assets.{% elif filters.query or filters.type or filters.status %}No assets match these filters.{% else %}No assets have been added yet.{% endif %}</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <footer class="footer-note"><span>Threat Pulse <b>·</b> Intelligence you can act on.</span><span>Inventory snapshot <span class="pulse-dot"></span></span></footer>
+            </div>
+        </main>
+    </div>
+{% endblock %}
+{% block footer %}{% endblock %}

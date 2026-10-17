@@ -263,3 +263,160 @@ API Screenshots
 
 Web Scraping Images:
 ![alt text](image-12.png)
+
+
+ThreatPulse
+Daniel Rowland
+IT401 - Web Intelligence Assignment A3
+
+## Project Overview
+
+Threat Pulse is a Flask cybersecurity intelligence application for security analysts. It combines a dashboard, threat records, public web context, domain lookups, and an asset inventory in one workspace.
+
+## Information Persistence
+
+- Asset records are stored in the Aiven MySQL `assets` table so inventory changes persist between requests and application restarts.
+- Threat records are stored locally in `data/threats.json`.
+- APIFreaks lookup responses and Bing search enrichment are fetched for a request and are not persisted.
+- Search terms and filters are request parameters and are not persisted.
+
+## Database Schema
+
+The app uses `mysql-connector-python` directly; it does not use SQLAlchemy. `AssetService` creates the `assets` table with `CREATE TABLE IF NOT EXISTS` when the Assets page first connects. The MySQL user needs table-creation and CRUD permissions.
+
+| Column | Type | Description |
+| --- | --- | --- |
+| `id` | `BIGINT UNSIGNED` | Auto-incrementing primary key. |
+| `name` | `VARCHAR(120)` | Required asset name. |
+| `asset_type` | `VARCHAR(40)` | Server, Database, Endpoint, Network, or Storage. |
+| `owner` | `VARCHAR(120)` | Optional owner or team. |
+| `environment` | `VARCHAR(80)` | Required environment. |
+| `address` | `VARCHAR(255)` | Optional network address. |
+| `status` | `VARCHAR(32)` | Active, Maintenance, or Offline; defaults to Active. |
+| `risk` | `VARCHAR(32)` | Critical, High, Medium, or Low; defaults to Low. |
+| `created_at` | `TIMESTAMP` | Row creation time. |
+| `updated_at` | `TIMESTAMP` | Creation and last-update time. |
+
+Indexes support searches by name and asset type. Asset names are not unique, so duplicate names are currently allowed; the row ID is the unique key.
+
+## Application Architecture
+
+The browser sends requests to Flask routes in `routes/main.py`. Those routes render Jinja templates or call services: `AssetService` talks to Aiven MySQL, `SearchService` reads the JSON threat feed, `WebScraperService` retrieves temporary Bing context, and `DomainLookupService` calls APIFreaks. `config.py` loads settings from environment variables, and `static/style.css` styles the pages. MySQL access uses the Connector/Python driver, not an ORM.
+
+## Information Flow
+
+1. A user opens the dashboard, Assets, intelligence, or domain lookup page.
+2. The Assets route passes search and filter criteria to `AssetService`, which ensures the table exists and reads matching MySQL rows.
+3. Create and update forms are validated server-side, then written with parameterized SQL. Delete actions use the asset's ID. Changes are committed and the page displays a result message.
+4. The intelligence route filters local JSON threat records and adds any available public web context to the response without changing the JSON file.
+5. The domain lookup route sends the submitted domain to APIFreaks and renders the returned details without saving them.
+
+## Current Features
+
+- Dashboard with threat summaries and recent incidents.
+- APIFreaks domain infrastructure and WHOIS-style lookup.
+- Bing HTML search for supplemental threat context and heuristic risk scoring.
+- MySQL-backed asset inventory with create, read, update, and delete operations.
+- Asset search by name, owner, environment, or address, with type and status filters.
+- Threat search and filtering by text, severity, status, and source.
+- Asset input validation and parameterized database queries.
+
+## Project Structure
+
+- `app.py`, `config.py`: Flask application factory and environment-based configuration.
+- `routes/main.py`: Web routes and request handling.
+- `services/`: MySQL asset CRUD, threat search, APIFreaks, scraping, and supporting integrations.
+- `data/threats.json`: Local persistent threat records.
+- `templates/`, `static/`: Jinja pages and shared CSS.
+- `models/`: Model package.
+- `tests/test_app.py`: Application and service tests.
+- `requirements.txt`: Python dependencies.
+- `.env.example`: Environment-variable template; keep real values in the ignored local `.env` file.
+
+## Installation Instructions
+
+1. Clone the course repository. **[Add the repository URL here; it is not available in this workspace.]**
+
+   ```bash
+   git clone <YOUR_REPOSITORY_URL>
+   cd drowland-it401-final-project
+   ```
+
+2. Create and activate a virtual environment:
+
+   ```powershell
+   python -m venv .venv
+   .venv\Scripts\Activate.ps1
+   ```
+
+   On macOS or Linux, use `source .venv/bin/activate`.
+
+3. Install dependencies:
+
+   ```bash
+   python -m pip install -r requirements.txt
+   ```
+
+4. Create `.env` in the project root and set the variables listed below. Do not commit the file or include credentials in this README.
+5. Ensure the Aiven database named by `MYSQL_DATABASE` exists and the configured user can create tables and perform CRUD operations. No manual table creation or seed data is required; the app creates an empty `assets` table on the first Assets request.
+6. Run `python app.py`, then open [http://127.0.0.1:5000](http://127.0.0.1:5000). The Assets page is at `/assets`.
+
+Run tests with `python -m pytest -q`.
+
+## Environment Variables
+
+Do not enter actual secrets in this README.
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `MYSQL_HOST` | Yes for Assets | Aiven MySQL hostname. |
+| `MYSQL_PORT` | No | MySQL port; defaults to `3306`. |
+| `MYSQL_DATABASE` | Yes for Assets | Database name inside the Aiven service. |
+| `MYSQL_USER` | Yes for Assets | Aiven database username. |
+| `MYSQL_PASSWORD` | Yes for Assets | Aiven database password. |
+| `MYSQL_SSL_CA` | No | Optional local path to a CA certificate; when set, certificate and host identity checks are enabled. |
+| `APIFREAKS_API_KEY` | For domain lookup | APIFreaks API key; `API_KEY` is supported as a fallback. |
+| `SECRET_KEY` | Recommended | Flask session signing key. |
+| `FLASK_ENV` | No | `development` or `production`; defaults to development configuration. |
+| `AI_SERVICE_API_KEY` | No | Optional AI-service setting; not required by current page workflows. |
+
+## Error Handling
+
+- Missing MySQL settings or connection failures are shown as user-facing messages; detailed database exceptions are logged server-side.
+- Invalid asset fields are rejected and reported through form feedback. Missing asset IDs produce a not-found message.
+- A missing APIFreaks key or failed API request is reported on the domain lookup page.
+- Bing network failures or irrelevant search results produce no enrichment; local threat records remain available.
+
+## Screenshots
+
+The README includes screenshots of the homepage, the Aiven service view, and Assets-page CRUD states, including example rows shown in an earlier interface capture. The live asset table is empty after the CRUD test.
+
+## Design Decisions
+
+- Assets are persisted because inventory should survive application requests and restarts; threats remain in JSON for the current scope.
+- A single `assets` table is sufficient for the current inventory workflow. Optional owner and address fields are nullable, while type, status, and risk values are validated by the application.
+- `AssetService` isolates database work from route handlers. SQL parameters are bound separately from query text.
+- Duplicate names are allowed; the auto-incrementing ID uniquely identifies each asset. No deduplication policy is implemented.
+
+## Known Limitations
+
+- Only assets use MySQL. Threats remain in a local JSON file; domain and scraped lookup results are temporary.
+- Asset names may be duplicated. The inventory has no pagination or bulk editing.
+- The app has no user authentication, authorization, or audit log and is not ready to be exposed as a production service.
+
+
+## Future Work: A4 Search & Information Retrieval
+
+ Proposed work is to expand search across asset and threat information, add sorting and pagination for larger result sets, and evaluate MySQL full-text search if it matches the assignment requirements. Search and filter behavior should be covered by tests for combined filters, empty results, and database errors.
+
+mySQL Screenshots on the Assets.html page. CRUD demonstrated
+![alt text](image-13.png)
+![alt text](image-14.png)
+![alt text](image-15.png)
+![alt text](image-16.png)
+![alt text](image-17.png)
+![alt text](image-18.png)
+![alt text](image-19.png)
+![alt text](image-20.png)
+![alt text](image-21.png)
+![alt text](image-22.png)

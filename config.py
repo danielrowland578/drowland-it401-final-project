@@ -11,6 +11,12 @@ class Config:
     API_KEY = os.environ.get("API_KEY")
     APIFREAKS_API_KEY = os.environ.get("APIFREAKS_API_KEY")
     AI_SERVICE_API_KEY = os.environ.get("AI_SERVICE_API_KEY")
+    MYSQL_HOST = os.environ.get("MYSQL_HOST")
+    MYSQL_PORT = os.environ.get("MYSQL_PORT", "3306")
+    MYSQL_DATABASE = os.environ.get("MYSQL_DATABASE")
+    MYSQL_USER = os.environ.get("MYSQL_USER")
+    MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD")
+    MYSQL_SSL_CA = os.environ.get("MYSQL_SSL_CA")
 
 
 class DevelopmentConfig(Config):

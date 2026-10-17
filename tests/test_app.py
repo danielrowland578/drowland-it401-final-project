@@ -8,6 +8,13 @@ from services.web_scraper_service import WebScraperService
 def client():
     app = create_app("development")
     app.config["TESTING"] = True
+    app.config.update(
+        MYSQL_HOST=None,
+        MYSQL_DATABASE=None,
+        MYSQL_USER=None,
+        MYSQL_PASSWORD=None,
+        MYSQL_SSL_CA=None,
+    )
     with app.test_client() as client:
         yield client
 
@@ -15,6 +22,86 @@ def client():
 def test_index(client):
     response = client.get("/")
     assert response.status_code == 200
+
+
+def test_assets_route_shows_unconfigured_empty_inventory(client):
+    response = client.get("/assets")
+
+    assert response.status_code == 200
+    assert b"Database is not configured" in response.data
+    assert b"No assets have been added yet" not in response.data
+    assert b"prod-api-01" not in response.data
+    assert b"SAMPLE DATA" not in response.data
+
+
+def test_assets_crud_routes_use_database_service(client, monkeypatch):
+    class FakeAssetService:
+        is_configured = True
+        STATUSES = ("Active", "Maintenance", "Offline")
+        ASSET_TYPES = ("Server", "Database")
+        RISK_LEVELS = ("Critical", "High", "Medium", "Low")
+
+        def __init__(self, config):
+            self.created = None
+            self.updated = None
+            self.deleted = None
+
+        def list_assets(self, filters):
+            return []
+
+        def get_asset_types(self):
+            return []
+
+        def get_metrics(self):
+            return {"total": 0, "active": 0, "critical": 0, "unassigned": 0}
+
+        def get_asset(self, asset_id):
+            return None
+
+        def create_asset(self, data):
+            self.created = data.get("name")
+
+        def update_asset(self, asset_id, data):
+            self.updated = (asset_id, data.get("name"))
+            return True
+
+        def delete_asset(self, asset_id):
+            self.deleted = asset_id
+            return True
+
+    fake_service = FakeAssetService({})
+    monkeypatch.setattr("routes.main.AssetService", lambda config: fake_service)
+    asset_form = {
+        "name": "test-server",
+        "type": "Server",
+        "owner": "Test Team",
+        "environment": "Test",
+        "address": "192.0.2.10",
+        "status": "Active",
+        "risk": "Low",
+    }
+
+    assert client.post("/assets", data=asset_form).status_code == 302
+    assert fake_service.created == "test-server"
+    assert client.post("/assets/12/update", data=asset_form).status_code == 302
+    assert fake_service.updated == (12, "test-server")
+    assert client.post("/assets/12/delete").status_code == 302
+    assert fake_service.deleted == 12
+
+
+def test_asset_validation_rejects_unknown_status():
+    from services.asset_service import AssetService
+
+    with pytest.raises(ValueError, match="valid asset status"):
+        AssetService.validate_asset(
+            {
+                "name": "test-server",
+                "type": "Server",
+                "environment": "Test",
+                "status": "Unknown",
+                "risk": "Low",
+            }
+        )
 
 
 def test_intelligence_route_reads_json_store(client):
