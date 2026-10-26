@@ -46,8 +46,8 @@ def test_assets_crud_routes_use_database_service(client, monkeypatch):
             self.updated = None
             self.deleted = None
 
-        def list_assets(self, filters):
-            return []
+        def paginate_assets(self, filters, page=1, **kwargs):
+            return {"items": [], "total": 0, "page": 1, "pages": 1}
 
         def get_asset_types(self):
             return []
@@ -102,6 +102,84 @@ def test_asset_validation_rejects_unknown_status():
                 "risk": "Low",
             }
         )
+
+
+def test_asset_filters_are_forwarded_and_preserved(client, monkeypatch):
+    from services.asset_service import AssetService
+
+    captured = {}
+
+    def paginate_assets(self, filters, page=1, **kwargs):
+        captured.update(filters)
+        return {"items": [], "total": 0, "page": 1, "pages": 1}
+
+    monkeypatch.setattr(AssetService, "is_configured", True)
+    monkeypatch.setattr(AssetService, "paginate_assets", paginate_assets)
+    monkeypatch.setattr(AssetService, "get_asset_types", lambda self: ["Server"])
+    monkeypatch.setattr(AssetService, "get_metrics", lambda self: {"total": 3, "active": 2, "critical": 1, "unassigned": 0})
+    response = client.get("/assets", query_string={
+        "q": " production server ", "type": "Server", "status": "Active",
+        "name": " api ", "owner": "Security", "address": "10.0", "environment": "prod", "risk": "High",
+    })
+
+    assert response.status_code == 200
+    assert captured == {
+        "query": "production server", "type": "Server", "status": "Active", "name": "api",
+        "owner": "Security", "address": "10.0", "environment": "prod", "risk": "High",
+    }
+    assert b'value="Security"' in response.data
+    assert b'value="10.0"' in response.data
+    assert b'value="High" selected' in response.data
+    assert b'open>' in response.data
+    assert b'No assets match these filters.' in response.data
+    assert b'>Clear</a>' in response.data
+
+
+def test_asset_field_filter_shows_empty_results_and_clear(client):
+    response = client.get("/assets?owner=Nobody")
+    assert response.status_code == 200
+    assert b'>Clear</a>' in response.data
+    assert b'value="Nobody"' in response.data
+
+
+@pytest.mark.parametrize("page_value, expected_page", [("2", 2), ("invalid", 1)])
+def test_asset_page_links_preserve_filters(client, monkeypatch, page_value, expected_page):
+    from html import unescape
+    import re
+    from urllib.parse import parse_qs, urlsplit
+    from services.asset_service import AssetService
+
+    def paginate(self, filters, page=1, **kwargs):
+        assert page == expected_page
+        assert kwargs == {"sort": "owner", "direction": "desc"}
+        return {"items": [], "total": 23, "page": page, "pages": 3}
+
+    monkeypatch.setattr(AssetService, "is_configured", True)
+    monkeypatch.setattr(AssetService, "paginate_assets", paginate)
+    monkeypatch.setattr(AssetService, "get_asset_types", lambda self: [])
+    monkeypatch.setattr(AssetService, "get_metrics", lambda self: {"total": 36})
+    filters = {"q": "demo server", "type": "Server", "status": "Active", "owner": "Demo IT",
+               "name": "demo", "address": "192.0.2", "environment": "Demo", "risk": "Low"}
+    response = client.get("/assets", query_string={**filters, "page": page_value, "sort": "owner", "direction": "desc"})
+    assert response.status_code == 200
+    markup = response.get_data(as_text=True)
+    assert f"Page {expected_page} of 3" in markup
+    next_link = re.search(r'href="([^"]+)">Next</a>', markup).group(1)
+    assert parse_qs(urlsplit(unescape(next_link)).query) == {
+        **{key: [value] for key, value in filters.items()}, "page": [str(expected_page + 1)],
+        "sort": ["owner"], "direction": ["desc"]}
+    assert 'aria-sort="descending"' in markup
+    assert 'name="sort" value="owner"' in markup
+    assert 'name="direction" value="desc"' in markup
+    owner_link = re.search(r'href="([^"]+)" aria-label="Sort by Owner ascending"', markup).group(1)
+    owner_args = parse_qs(urlsplit(unescape(owner_link)).query)
+    assert owner_args == {**{key: [value] for key, value in filters.items()},
+                          "sort": ["owner"], "direction": ["asc"]}
+    type_link = re.search(r'href="([^"]+)" aria-label="Sort by Type ascending"', markup).group(1)
+    assert parse_qs(urlsplit(unescape(type_link)).query)["direction"] == ["asc"]
+    if expected_page == 2:
+        previous_link = re.search(r'href="([^"]+)">Previous</a>', markup).group(1)
+        assert parse_qs(urlsplit(unescape(previous_link)).query)["page"] == ["1"]
 
 
 def test_intelligence_route_reads_json_store(client):

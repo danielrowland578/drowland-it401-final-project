@@ -15,11 +15,21 @@ def register_routes(app):
     def assets():
         filters = {
             "query": request.args.get("q", "").strip(),
-            "type": request.args.get("type", ""),
-            "status": request.args.get("status", ""),
+            **{
+                key: request.args.get(key, "").strip()
+                for key in ("type", "status", "name", "owner", "address", "environment", "risk")
+            },
         }
+        sort_columns = (("name", "Asset"), ("type", "Type"), ("owner", "Owner"),
+                        ("environment", "Environment"), ("address", "Network address"),
+                        ("updated_at", "Updated"), ("status", "Status"), ("risk", "Risk"))
+        sort = request.args.get("sort", "")
+        if sort not in dict(sort_columns):
+            sort = "name"
+        direction = "desc" if request.args.get("direction") == "desc" else "asc"
         service = AssetService(current_app.config)
         assets = []
+        pagination = {"items": [], "total": 0, "page": 1, "pages": 1}
         asset_types = []
         metrics = {"total": 0, "active": 0, "critical": 0, "unassigned": 0}
         database_error = None
@@ -28,7 +38,9 @@ def register_routes(app):
             database_error = "Database is not configured. Add your Aiven connection settings to the local .env file."
         else:
             try:
-                assets = service.list_assets(filters)
+                pagination = service.paginate_assets(
+                    filters, request.args.get("page", 1, type=int), sort=sort, direction=direction)
+                assets = pagination["items"]
                 asset_types = service.get_asset_types()
                 metrics = service.get_metrics()
             except Exception:
@@ -46,10 +58,24 @@ def register_routes(app):
                 current_app.logger.exception("Unable to load asset for editing")
                 database_error = "Unable to load that asset from MySQL."
 
+        page_args = {("q" if key == "query" else key): value for key, value in filters.items() if value}
+        sort_headers = [{"key": key, "label": label, "url": url_for(
+            "assets", sort=key, direction="desc" if key == sort and direction == "asc" else "asc",
+            **page_args)} for key, label in sort_columns]
+        page_args.update(sort=sort, direction=direction)
         return render_template(
             "assets.html",
             assets=assets,
+            sort=sort,
+            direction=direction,
+            sort_headers=sort_headers,
+            pagination=pagination,
+            first_asset=(pagination["page"] - 1) * 10 + 1 if assets else 0,
+            last_asset=(pagination["page"] - 1) * 10 + len(assets) if assets else 0,
+            previous_url=url_for("assets", page=pagination["page"] - 1, **page_args),
+            next_url=url_for("assets", page=pagination["page"] + 1, **page_args),
             filters=filters,
+            has_filters=any(filters.values()),
             asset_types=asset_types,
             statuses=service.STATUSES,
             asset_kinds=service.ASSET_TYPES,

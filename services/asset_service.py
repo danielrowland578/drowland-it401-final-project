@@ -99,23 +99,39 @@ class AssetService:
         finally:
             connection.close()
 
-    def list_assets(self, filters):
+    @staticmethod
+    def _asset_filters(filters):
         conditions = []
         parameters = []
-        if filters.get("query"):
-            pattern = f"%{filters['query']}%"
-            conditions.append(
-                "(name LIKE %s OR COALESCE(owner, '') LIKE %s "
-                "OR environment LIKE %s OR COALESCE(address, '') LIKE %s)"
-            )
-            parameters.extend([pattern] * 4)
-        if filters.get("type"):
-            conditions.append("asset_type = %s")
-            parameters.append(filters["type"])
-        if filters.get("status"):
-            conditions.append("status = %s")
-            parameters.append(filters["status"])
+
+        def pattern(value):
+            # Treat SQL wildcard characters as literal search text.
+            escaped = value.lower().replace("!", "!!").replace("%", "!%").replace("_", "!_")
+            return f"%{escaped}%"
+
+        search_columns = ("name", "asset_type", "owner", "environment", "address", "status", "risk")
+        # Every keyword must match, but keywords can match different fields.
+        for keyword in filters.get("query", "").split():
+            conditions.append("(" + " OR ".join(
+                f"LOWER(COALESCE({column}, '')) LIKE %s ESCAPE '!'"
+                for column in search_columns
+            ) + ")")
+            parameters.extend([pattern(keyword)] * len(search_columns))
+        for field in ("name", "owner", "address", "environment"):
+            value = filters.get(field, "").strip()
+            if value:
+                conditions.append(f"LOWER(COALESCE({field}, '')) LIKE %s ESCAPE '!'")
+                parameters.append(pattern(value))
+        for field, column in (("type", "asset_type"), ("status", "status"), ("risk", "risk")):
+            value = filters.get(field, "").strip()
+            if value:
+                conditions.append(f"LOWER({column}) = %s")
+                parameters.append(value.lower())
         where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        return where_clause, parameters
+
+    def list_assets(self, filters):
+        where_clause, parameters = self._asset_filters(filters)
         query = f"""
             SELECT id, name, asset_type AS type, owner, environment, address,
                    status, risk, updated_at
@@ -127,6 +143,36 @@ class AssetService:
             try:
                 cursor.execute(query, parameters)
                 return cursor.fetchall()
+            finally:
+                cursor.close()
+
+    def paginate_assets(self, filters, page=1, sort="name", direction="asc"):
+        """Filter and count in MySQL, fetching at most ten matching assets."""
+        where_clause, parameters = self._asset_filters(filters)
+        # SQL identifiers cannot be bound as parameters: accept only known columns.
+        columns = {
+            "name": "LOWER(name)", "type": "LOWER(asset_type)",
+            "owner": "LOWER(COALESCE(owner, 'Unassigned'))",
+            "environment": "LOWER(environment)",
+            "address": "LOWER(COALESCE(address, ''))", "updated_at": "updated_at",
+            "status": "LOWER(status)", "risk": "LOWER(risk)",
+        }
+        column = columns.get(sort, columns["name"])
+        order = "DESC" if direction == "desc" else "ASC"
+        with self._connection() as connection:
+            cursor = connection.cursor(dictionary=True)
+            try:
+                cursor.execute(f"SELECT COUNT(*) AS total FROM assets {where_clause}", parameters)
+                total = cursor.fetchone()["total"]
+                pages = max(1, (total + 9) // 10)
+                page = max(1, min(page, pages))
+                cursor.execute(
+                    "SELECT id, name, asset_type AS type, owner, environment, address, "
+                    f"status, risk, updated_at FROM assets {where_clause} "
+                    f"ORDER BY {column} {order}, id ASC LIMIT %s OFFSET %s",
+                    [*parameters, 10, (page - 1) * 10],
+                )
+                return {"items": cursor.fetchall(), "total": total, "page": page, "pages": pages}
             finally:
                 cursor.close()
 

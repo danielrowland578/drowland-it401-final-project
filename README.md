@@ -112,6 +112,8 @@ Current Threat Pulse application purpose
 
 I plan to include multiple assets and include web pages for critical alerts and active threats, and many more.
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 ThreatPulse
 Daniel Rowland
 IT401 - Web Intelligence Assignment A2
@@ -264,6 +266,7 @@ API Screenshots
 Web Scraping Images:
 ![alt text](image-12.png)
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ThreatPulse
 Daniel Rowland
@@ -420,3 +423,295 @@ mySQL Screenshots on the Assets.html page. CRUD demonstrated
 ![alt text](image-20.png)
 ![alt text](image-21.png)
 ![alt text](image-22.png)
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ThreatPulse
+Daniel Rowland
+IT401 - Web Intelligence Assignment A4
+
+## Project Overview
+
+ThreatPulse is a Flask web application that combines a searchable asset inventory, local threat intelligence, live domain lookups, and public web context. It helps cybersecurity analysts and IT administrators locate systems, review their recorded status and risk, and investigate threats from one workspace.
+
+A4 expands the Assets page with keyword search, combined filters, clickable sorting, and database pagination. These features help users find specific systems without scanning the entire inventory. The Intelligence page separately searches local threat records; asset and threat searches are not combined.
+
+This section describes the current A4 implementation. Earlier assignment sections describe earlier versions, including limitations that A4 has since addressed.
+
+## Search and Retrieval Features
+
+| Feature | Current behavior |
+| --- | --- |
+| Keyword search | Case-insensitive substring matching. Every whitespace-separated asset keyword must match at least one searchable field. |
+| Fields searched | Asset name, type, owner, environment, network address, status, and risk. |
+| Filters | Name, owner, address, and environment substring filters; type, status, and risk exact-value filters. All supplied filters are combined. |
+| Sorting | Click Asset, Type, Owner, Environment, Network address, Status, or Risk for alphabetical sorting. Updated sorts by timestamp. Clicking the selected heading reverses direction. |
+| Ranking method | No relevance score or relevance ranking is implemented for assets. Results use the selected column order, with ascending ID as a tie-breaker. |
+| Pagination | Ten matching assets per page, with Previous/Next controls and a page count. Sorting and filters persist between pages. |
+| Retrieval feedback | The page shows the displayed range and matching total, a no-results message, and a Clear link when filters are active. Summary cards describe the full inventory. |
+| Search telemetry | Not implemented. Search-history storage, query analytics, click tracking, and relevance ratings are outstanding. |
+
+## Search Workflow
+
+```text
+User enters keywords and/or filters on /assets
+    -> Browser submits a GET request with search parameters
+    -> Route trims filter values and checks sort/page parameters
+    -> AssetService builds parameterized MySQL WHERE conditions
+    -> MySQL counts all matching records
+    -> Requested page is clamped to the available page range
+    -> MySQL applies ORDER BY, LIMIT 10, and OFFSET
+    -> Flask renders rows, matching count, sort arrows, and page controls
+```
+
+Changing a filter or sort starts at the first page. Page links preserve the active query, filters, sort column, and direction. Retrieval does not currently write a search-history record.
+
+## Searchable Information
+
+| Record/source | Searchable fields | Filters | Ranking |
+| --- | --- | --- | --- |
+| Assets: MySQL `assets` table | `name`, `asset_type`, `owner`, `environment`, `address`, `status`, `risk` | Name, owner, address, environment, type, status, risk | No relevance weighting; selected column sort and ID tie-breaker. |
+| Threats: `data/threats.json` | `title`, `category`, `source`, `description` | Severity, status, source | Original JSON feed order is preserved. |
+
+Asset fields cover the identifiers, ownership, location, and operational details analysts use to find systems. Specific text filters narrow searches to one field; categorical filters provide predictable choices. Asset IDs and timestamps are not keyword-search fields, although Updated is sortable. Missing owners display as Unassigned, but that display label is not stored as searchable owner text.
+
+The `models/` directory currently contains only a package initializer. Assets are retrieved through `AssetService`, and threats through `SearchService`; there are no ORM model classes or unified search index. No asset field has an assigned relevance weight.
+
+## Retrieval Strategy
+
+Asset keyword matching uses MySQL `LOWER(COALESCE(column, '')) LIKE %s ESCAPE '!'`. Each keyword becomes a `%keyword%` substring pattern. Fields within one keyword condition are joined with OR; separate keyword conditions and all supplied filters are joined with AND. For example, `server production security` can match type, environment, and owner on the same asset.
+
+Name, owner, address, and environment filters use the same substring strategy. Type, status, and risk use case-insensitive equality. SQL wildcard characters `%` and `_`, and the escape character `!`, are escaped so search input is treated literally. Values are bound separately from SQL text. Sort columns and directions are selected from allowed values before being placed in `ORDER BY`.
+
+The default asset order is name A–Z, followed by ascending ID for ties. Text sorting is case-insensitive; missing owners sort using the displayed Unassigned label. Updated sorts chronologically. Risk sorts alphabetically rather than by severity, and network addresses sort as text rather than numerically by IP octet. Sorting occurs before pagination across the full matching result set.
+
+Assets use `LIKE`, not `ILIKE`, MySQL full-text search, or semantic search. Threat search uses a case-insensitive Python substring check against concatenated fields; its complete query is matched as one string rather than split into independent keywords.
+
+The scraper separately selects a Bing result using overlapping terms from the threat title, category, and indicators. Its heuristic risk score enriches threat cards but does not rank asset results or reorder the threat feed. Current retrieval lacks synonym expansion, stemming, and relevance weighting. Leading-wildcard substring searches may become expensive as the inventory grows.
+
+## Search Telemetry
+
+**Not implemented:** the application does not persist structured search events, result counts, durations, selected-result clicks, or user feedback. Search values appear in GET URLs, and development server access logs may contain those URLs; these logs are not a dedicated telemetry system.
+
+A future implementation could record query text, filters, sort choice, result count, execution time, and timestamp. Aggregate analysis could identify common searches, zero-result queries, and slow retrieval paths, informing query suggestions, indexing, and later recommendations. Retention and handling of potentially sensitive search text would need to be defined before collection begins.
+
+## Database Schema
+
+The current application schema contains one table used by Assets. A4 adds retrieval behavior without adding tables or columns.
+
+| Table | Purpose | Primary key | Relationships |
+| --- | --- | --- | --- |
+| `assets` | Persistent inventory for CRUD, search, filters, sorting, and pagination | `id`: auto-incrementing unsigned BIGINT | No foreign keys or relationships to other application tables. Threats remain in JSON. |
+
+| Attribute | Definition/purpose |
+| --- | --- |
+| `name` | Required VARCHAR(120), searchable asset name. |
+| `asset_type` | Required VARCHAR(40), searchable/filterable type; returned to templates as `type`. |
+| `owner` | Nullable VARCHAR(120), responsible person/team. |
+| `environment` | Required VARCHAR(80), deployment environment. |
+| `address` | Nullable VARCHAR(255), network address or hostname. |
+| `status` | Required VARCHAR(32), defaults to Active. |
+| `risk` | Required VARCHAR(32), defaults to Low. |
+| `created_at` | Timestamp populated when inserted. |
+| `updated_at` | Timestamp updated automatically when the record changes. |
+
+The table uses InnoDB and utf8mb4, with ordinary indexes on `name` and `asset_type`. It has no full-text index. `AssetService` runs `CREATE TABLE IF NOT EXISTS` when opening a database operation. This creates a missing table but does not migrate an incompatible existing schema.
+
+**Search-history/telemetry schema: outstanding.** No such table, primary key, attributes, or relationships are implemented, so an implemented telemetry schema cannot be documented yet.
+
+## Current Features Through A4
+
+- Homepage and shared navigation for the ThreatPulse workspace.
+- APIFreaks live domain WHOIS API integration, returning registrar, registration, expiry, and nameserver information.
+- Bing HTML scraping with text cleanup, source attribution, relevance filtering, and heuristic threat-risk scoring.
+- Local JSON threat keyword search with severity, status, and source filters.
+- Aiven MySQL persistence for asset inventory and create, read, update, and delete operations using bound SQL parameters.
+- Asset keyword search across seven fields, combined basic/advanced filters, and a Clear action.
+- Clickable column sorting with ascending/descending indicators and ten-row pagination.
+- Matching-result counts, displayed ranges, and no-results feedback.
+- Asset data validation for required fields, length limits, and allowed type/status/risk values. Optional owner/address fields can be omitted; network-address syntax is not validated.
+- A demo-data script that adds 30 clearly fictional assets with `demo-` names and documentation-range addresses. Each invocation adds another batch and preserves existing rows.
+- Automated search, filtering, sorting, pagination, validation, and route tests.
+
+Asset relevance ranking and structured search telemetry remain unimplemented. The scraper's risk scoring is separate from asset retrieval ranking.
+
+## Project Structure
+
+```text
+drowland-it401-final-project/
+|-- app.py                         # Flask app factory and development entry point
+|-- config.py                      # Environment-based configuration
+|-- requirements.txt               # Python dependencies
+|-- .env.example                   # Environment template; no real credentials
+|-- README.md                      # Setup and assignment documentation
+|-- routes/
+|   |-- __init__.py
+|   `-- main.py                    # Pages, search parameters, CRUD handlers
+|-- services/
+|   |-- __init__.py
+|   |-- asset_service.py           # MySQL schema, validation, CRUD, retrieval
+|   |-- search_service.py          # Local JSON threat search
+|   |-- domain_lookup_service.py   # APIFreaks integration
+|   |-- web_scraper_service.py     # Bing parsing, relevance and risk scoring
+|   |-- api_service.py             # Generic HTTP client helper
+|   `-- ai_service.py              # AI integration scaffold
+|-- models/
+|   `-- __init__.py                # Model package placeholder
+|-- data/
+|   `-- threats.json               # Local threat records
+|-- templates/
+|   |-- base.html                  # Shared layout
+|   |-- index.html                 # Homepage
+|   |-- assets.html                # Inventory forms, search, table, page controls
+|   |-- intelligence.html          # Threat intelligence results
+|   |-- domain_lookup.html         # Domain lookup workflow
+|   `-- about.html                 # Application background
+|-- static/
+|   `-- style.css                  # Shared and page-specific styling
+|-- scripts/
+|   `-- seed_demo_assets.py        # Optional fictional inventory generator
+`-- tests/
+    |-- __init__.py
+    |-- test_app.py                # Route, filter, link, and integration-unit tests
+    `-- test_asset_search.py       # SQL retrieval, sorting, and pagination tests
+```
+
+Screenshot PNG files are stored in the project root. There is currently no migrations directory or telemetry module.
+
+## Installation Instructions
+
+1. Clone the repository and enter the project directory:
+
+   ```powershell
+   git clone https://github.com/danielrowland578/drowland-it401-final-project.git
+   cd drowland-it401-final-project
+   ```
+
+2. Create a virtual environment and install dependencies:
+
+   ```powershell
+   python -m venv .venv
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+   ```
+
+3. Create a local `.env` using the variable names in the next section. Copy connection values from the existing Aiven MySQL service. Do not commit credentials. If using `.env.example`, put `MYSQL_SSL_CA=` on its own line and remove the accidentally attached comment from its value.
+
+4. Ensure the configured database exists and the account can connect, create the `assets` table, and perform CRUD. No migration command exists in this repository. The first asset database operation creates the table if missing; changes to an existing table require a separate schema update.
+
+5. Start the application:
+
+   ```powershell
+   .\.venv\Scripts\python.exe app.py
+   ```
+
+   Open [http://127.0.0.1:5000](http://127.0.0.1:5000) or go directly to `/assets`. The process must have network access to the Aiven host and configured port. During local verification, sandboxed execution caused Windows error 10013; running with the necessary network permission restored database access.
+
+6. Optionally add a new batch of 30 fictional assets:
+
+   ```powershell
+   .\.venv\Scripts\python.exe scripts/seed_demo_assets.py
+   ```
+
+7. Run the test suite:
+
+   ```powershell
+   .\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider
+   ```
+
+## Environment Variables
+
+Use the names read by `config.py`; generic `DB_*` and `RAPIDAPI_KEY` names are not used by this application.
+
+| Variable | Requirement and purpose |
+| --- | --- |
+| `MYSQL_HOST` | Required for Assets: Aiven MySQL hostname. |
+| `MYSQL_PORT` | MySQL port from the service connection settings; defaults to 3306. |
+| `MYSQL_DATABASE` | Required for Assets: existing database name. |
+| `MYSQL_USER` | Required for Assets: database username. |
+| `MYSQL_PASSWORD` | Required for Assets: database password. |
+| `MYSQL_SSL_CA` | Optional local certificate path; enables certificate and hostname verification when provided. Leave empty if not configured. |
+| `APIFREAKS_API_KEY` | Required for live domain lookup. |
+| `API_KEY` | Compatibility fallback for the domain API key. |
+| `SECRET_KEY` | Flask session signing key; replace the development default. |
+| `FLASK_ENV` | Configuration selector: development or production. |
+| `AI_SERVICE_API_KEY` | Optional scaffold setting; not required for current search workflows. |
+
+No actual credentials are included here.
+
+## Error Handling
+
+| Situation | Current behavior |
+| --- | --- |
+| Empty query | Applies any selected filters; with no filters, shows the full inventory in pages. Whitespace is trimmed. |
+| Invalid filters | UI dropdowns offer known options. Manually supplied nonmatching values generally return no results; search filter values are not rejected with a validation message. CRUD forms separately validate allowed values. |
+| Invalid page numbers | Nonnumeric pages default to 1; zero/negative pages become 1; pages beyond the last page become the last available page. Empty results use page 1 of 1. |
+| Invalid sort | Unknown columns fall back to Asset; direction defaults to ascending unless the value is `desc`. |
+| No results | Shows “No assets match these filters,” a zero result count, and Clear. |
+| Database errors | Missing settings show a configuration notice. Connection/query failures show a database error notice and log the exception server-side. CRUD failures show flash messages. |
+| Telemetry failures | Not applicable yet: there is no telemetry write or telemetry failure-handling path. |
+
+## Search Evaluation
+
+Five representative automated queries use the fixed four-record fixture in `tests/test_asset_search.py`. These are repeatable test-fixture results, not counts from the changing online inventory. The fixture contains `prod-api-01`, `prod-db-01`, `test_100%!-node`, and `testX100abc-node`.
+
+| Query and filters | Expected results | Actual results |
+| --- | --- | --- |
+| `SERVER production SECURITY` | `prod-api-01`, matching across type, environment, and owner | `prod-api-01`; passed. |
+| `critical` | `prod-db-01`, matching its risk | `prod-db-01`; passed. |
+| `10.0.0` | `prod-api-01`, matching its network address | `prod-api-01`; passed. |
+| `production`, type Database, status Maintenance, risk Critical | `prod-db-01`, satisfying every condition | `prod-db-01`; passed. |
+| `production`, owner Network | No results, because no fixture record satisfies both | No results; passed. |
+
+For the four nonempty cases, precision and recall are each 1.0 against these explicitly defined fixture expectations. The empty case confirms rejection of incompatible conditions; precision is undefined when no records are returned. These small checks do not establish precision or recall on realistic analyst searches or a larger labeled dataset. A broader human-labeled evaluation remains outstanding.
+
+Ranking quality cannot be evaluated as relevance ranking because assets have no relevance score. Sorting tests check each selectable column in both directions, deterministic ties, and order across page boundaries. SQL retrieval tests use a SQLite adapter that substitutes parameter placeholders; they do not fully reproduce MySQL collation or TLS/network behavior. Separate live MySQL checks confirmed 36 assets across four pages and owner/type sorting across page boundaries at the time of A4 verification. Inventory counts can change with CRUD.
+
+The current suite contains 46 passing tests. Planned evaluation improvements include labeled analyst queries, synonym and punctuation cases, larger datasets, retrieval timing, and a comparison with full-text or semantic retrieval.
+
+## Screenshots
+
+The screenshots below cover the search form, keyword results, combined filters, pagination, and sortable headings/results. Search/filter captures show the earlier six-asset inventory; pagination and sorting captures include the fictional demo assets.
+
+Search form, keyword search, and filtered results:
+
+![Keyword search for DB-1](image-23.png)
+![Keyword search for laptop](image-24.png)
+![Assets filtered to active servers](image-25.png)
+![Assets filtered to offline status](image-26.png)
+![Expanded advanced asset filters and retrieval count](image-32.png)
+
+Pagination:
+
+![Asset pagination on page 1 of 4](image-27.png)
+![Asset pagination on page 2 of 4](image-28.png)
+
+Sorted results:
+
+![Assets sorted by name ascending](image-29.png)
+![Assets sorted by type descending](image-30.png)
+![Assets sorted by network address ascending](image-31.png)
+
+## Design Decisions
+
+- Searchable fields reflect how analysts identify systems: names, types, people/teams, environments, addresses, status, and risk. Dates and numeric IDs are excluded from keyword matching to keep the search focused on descriptive information.
+- Separate field filters distinguish similarly named systems and combine with keywords. Exact type/status/risk values support predictable category selection; text fields allow partial matches.
+- Every keyword must match somewhere on the same record, preventing results that satisfy only one word. No relevance weights are assigned; users choose a transparent column sort, with ID ensuring consistent ties.
+- Ten assets per page keep the table manageable. Counting and slicing in MySQL avoids loading every matching row into Python. Pagination preserves the current retrieval context.
+- Visible counts and empty-result messages provide immediate retrieval feedback. Planned telemetry would support later intelligence by identifying common intent, failed searches, and performance bottlenecks; that collection is not yet implemented.
+
+## Known Limitations
+
+- Substring matching does not understand synonyms, semantic intent, stemming, or singular/plural equivalence. Some forms match incidentally because one contains the other.
+- There is no asset relevance ranking, personalized search, or unified asset/threat retrieval.
+- Leading-wildcard `LIKE` with lowercase expressions can limit ordinary index use as the inventory grows; no full-text index exists.
+- Sorting risk alphabetically does not prioritize severity; network addresses use text order.
+- Offset pagination may become slower at large offsets. Concurrent inventory changes can shift results between requests.
+- Query analytics, search-history tables, click tracking, and dedicated telemetry failure handling are absent.
+- A no-results screenshot and a larger labeled search evaluation are still outstanding.
+- Only assets persist in MySQL. Threats remain in JSON, and external enrichment is temporary and depends on provider/network availability.
+- Asset names can be duplicated. Authentication, authorization, and an application audit log are not implemented.
+
+## Future Work: A5 and Later
+
+Potential next steps are structured search telemetry with retention controls and nonblocking failure handling, a labeled retrieval benchmark, query suggestions/autocomplete, and evaluation of MySQL full-text search. Later work could explore semantic search with embeddings, personalized ranking, recommendations, and retrieval-augmented generation. These are proposed enhancements, not current capabilities.
+
